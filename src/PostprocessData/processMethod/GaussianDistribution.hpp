@@ -82,7 +82,7 @@ public:
         /*for(auto& w: weight_)
         {
             w /= sum;
-        } */  
+        }*/
         return true;
     }
 

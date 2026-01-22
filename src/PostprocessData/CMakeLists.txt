@@ -19,6 +19,10 @@ set(SourceFiles
     postprocessComponent/postprocessComponent/postprocessComponent.cpp
     postprocessComponent/particleProbePostprocessComponent/particleProbePostprocessComponent.cpp 
     postprocessComponent/PostprocessComponent/PostprocessComponents.cpp
+    postprocessComponent/mixingIndexPostprocessComponent/mixingIndexPostprocessComponents.cpp
+    postprocessComponent/mixingIndexPostprocessComponent/mixingIndex/mixingIndex.cpp
+    postprocessComponent/mixingIndexPostprocessComponent/Lacey/Lacey.cpp
+
 
     # Operations
     operation/postprocessOperation/postprocessOperation.cpp

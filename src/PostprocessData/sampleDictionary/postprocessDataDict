@@ -118,6 +118,37 @@ components
         );
     }
     
+    mixingInedexCalc
+    {
+        processMethod   mixingIndex;
+        processRegion   rectMesh;
+        indexType       Lacey;
+        
+        rectMeshInfo 
+        {
+            min (-0.12 -0.12 0.00); // lower corner point of the box 
+            max (0.12   0.12 0.11); // upper corner point of the box
+            
+            nx 30; // number of divisions in x direction
+            ny 30; // number of divisions in y direction
+            nz 15; // number of divisions in z direction 
+        }
+
+        LaceyInfo
+        {
+            type1Frac      0.5;
+            threshold      10;
+            type1Selection lessThan;
+
+            lessThanInfo
+            {
+                field   diameter;
+                value   0.003;
+            }
+        }
+        
+    }
+
     on_single_sphere
     {
         // method of performing the sum (arithmetic, uniformDistribution, GaussianDistribution)
