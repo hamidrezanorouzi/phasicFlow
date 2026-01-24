@@ -1,0 +1,100 @@
+/* -------------------------------*- C++ -*--------------------------------- *\ 
+|  phasicFlow File                                                            | 
+|  copyright: www.cemf.ir                                                     | 
+\* ------------------------------------------------------------------------- */  
+objectName 	processDataDict;
+objectType 	dictionary;;
+fileFormat  ASCII;
+/*---------------------------------------------------------------------------*/
+
+runTimeActive       yes;
+
+shapeType           sphere;
+
+defaultTimeControl
+{
+    timeControl        simulationTime;
+    startTime          0;
+    executionInterval  0.5; 
+}
+
+components
+(
+    mixingInedexCalc
+    {
+        processMethod   mixingIndex;
+        
+        processRegion   rectMesh;
+        
+        indexType       Lacey;
+        
+        timeControl     default;
+
+        precision 4;
+
+        scientific no;
+
+        rectMeshInfo 
+        {
+            min (-0.12 -0.12 0.00); // lower corner point of the box 
+            max (0.12   0.12 0.11); // upper corner point of the box
+            
+            nx 15; // number of divisions in x direction
+            ny 15; // number of divisions in y direction
+            nz 8; // number of divisions in z direction 
+        }
+
+        LaceyInfo
+        {
+            type1Frac      0.5;
+            threshold      20;
+            type1Selection equal;
+
+            equalInfo
+            {
+                field   shapeIndex;
+                value   0;
+            }
+        }
+        
+    }
+
+    
+    positionProb
+    {
+        processMethod   particleProbe;
+
+        processRegion   centerPoints;
+        
+        timeControl     default;
+        
+        selector        id;
+        
+        ids (
+            0 
+            100 
+            200 
+            1000 
+            2000 
+            4000 
+            6000 
+            8000 
+            10000 
+            12000 
+            14000 
+            16000 
+            18000 
+            20000 
+            24000
+            26000 
+            28000 
+            29999);
+        
+        precision   5;
+        
+        scientific  yes;
+        
+        field       position;
+        
+    }
+);

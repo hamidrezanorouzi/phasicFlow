@@ -1,0 +1,72 @@
+/* -------------------------------*- C++ -*--------------------------------- *\ 
+|  phasicFlow File                                                            | 
+|  copyright: www.cemf.ir                                                     | 
+\* ------------------------------------------------------------------------- */  
+objectName  particlesDict;
+objectType  dictionary;
+fileFormat  ASCII;
+/*---------------------------------------------------------------------------*/
+positionParticles                                // positions particles 
+{
+    method ordered;                              // other options: random and empty
+
+    mortonSorting              Yes;              // perform initial sorting based on morton code?   
+
+    orderedInfo
+    {
+        distance  0.004;                         // minimum space between centers of particles
+
+        numPoints 30240;                         // number of particles in the simulation 
+
+        axisOrder (z x y);                       // axis order for filling the space with particles
+    }
+
+    regionType box;                              // other options: cylinder and sphere  
+
+    boxInfo                                      // box information for positioning particles 
+    {
+        min (-0.08 -0.08 0.015);                 // lower corner point of the box 
+
+        max ( 0.08  0.08 0.098);                 // upper corner point of the box 
+    }
+}
+
+setFields
+{
+    /*
+        Default value for fields defined for particles
+        These fields should always be defined for simulations with 
+        spherical particles.
+    */
+    defaultValue 
+    {
+        velocity        realx3  (0 0 0);         // linear velocity (m/s)
+
+        acceleration    realx3  (0 0 0);         // linear acceleration (m/s2)
+
+        rVelocity       realx3  (0 0 0);         // rotational velocity (rad/s)
+
+        shapeName       word    sphere1;         // name of the particle shape 
+    }
+
+    selectors
+    {
+        shapeAssigne
+        {
+            selector           box;     // other options: cylinder, sphere, randomPoints 
+            // select particles in the half of the drum to set to sphere2
+            boxInfo
+            {
+                min (-0.1 -0.1 0.0);
+                max ( 0.0  0.1 0.1);
+            }
+
+            fieldValue                           // fields that the selector is applied to 
+            {
+                shapeName   word sphere2;       // sets shapeName of the selected points to sphere2
+            }
+        }
+    }
+}
+
+
