@@ -37,4 +37,5 @@ Tutorials focused on geometry handling and visualization:
 Tutorials focused on post-processing and analysis:
 
 - [Segregation Analysis](./postprocessPhasicFlow/segregation/) - Demonstrates how to analyze particle segregation in simulation results
+- [Lacey Mixing Index Analysis](./postprocessPhasicFlow/LaceyMixingIndex/) - Setup a case and calculates the Lacey Mixing Index (LMI) in a rotating drum filled with two types of particles during the simulaiton.
 
