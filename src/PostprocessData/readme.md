@@ -27,18 +27,23 @@ In post-simulation mode, all `timeControl` settings are ignored. The postprocess
   - [6.3. Derived Functions](#63-derived-functions)
   - [6.4. Available Fields](#64-available-fields)
   - [6.5. Optional Parameters](#65-optional-parameters)
-- [7. Examples](#7-examples)
-  - [7.1. Example 1: Probing Individual Particles](#71-example-1-probing-individual-particles)
-  - [7.2. Example 2: Processing in a Spherical Region](#72-example-2-processing-in-a-spherical-region)
-  - [7.3. Example 3: Processing Along a Line](#73-example-3-processing-along-a-line)
-  - [7.4. Example 4: Processing in a Rectangular Mesh](#74-example-4-processing-in-a-rectangular-mesh)
-  - [7.5. Example 5: Tracking particles](#75-example-5-tracking-particles)
-- [8. Advanced Features](#8-advanced-features)
-  - [8.1. Special Functions Applied on Fields](#81-special-functions-applied-on-fields)
-  - [8.2. Particle Filtering with IncludeMask](#82-particle-filtering-with-includemask)
-  - [8.3. Implementation Notes](#83-implementation-notes)
-- [9. Mathematical Formulations](#9-mathematical-formulations)
-- [10. A Complete Dictionary File (postprocessDataDict)](#10-a-complete-dictionary-file-postprocessdatadict)
+- [7. Mixing Index Calculations](#7-mixing-index-calculations)
+  - [7.1. Overview](#71-overview)
+  - [7.2. Lacey Mixing Index](#72-lacey-mixing-index)
+  - [7.3. Configuration](#73-configuration)
+  - [7.4. Example Configuration](#74-example-configuration)
+- [8. Examples](#8-examples)
+  - [8.1. Example 1: Probing Individual Particles](#81-example-1-probing-individual-particles)
+  - [8.2. Example 2: Processing in a Spherical Region](#82-example-2-processing-in-a-spherical-region)
+  - [8.3. Example 3: Processing Along a Line](#83-example-3-processing-along-a-line)
+  - [8.4. Example 4: Processing in a Rectangular Mesh](#84-example-4-processing-in-a-rectangular-mesh)
+  - [8.5. Example 5: Tracking particles](#85-example-5-tracking-particles)
+- [9. Advanced Features](#9-advanced-features)
+  - [9.1. Special Functions Applied on Fields](#91-special-functions-applied-on-fields)
+  - [9.2. Particle Filtering with IncludeMask](#92-particle-filtering-with-includemask)
+  - [9.3. Implementation Notes](#93-implementation-notes)
+- [10. Mathematical Formulations](#10-mathematical-formulations)
+- [11. A Complete Dictionary File (postprocessDataDict)](#11-a-complete-dictionary-file-postprocessdatadict)
 
 ## 1. Overview
 
@@ -118,6 +123,7 @@ The postprocessing module provides several methods for processing particle data.
 | `arithmetic` | bulk | Simple arithmetic mean/sum with equal weights | Each particle contributes equally |
 | `uniformDistribution` | bulk | Each particle contributes inversely proportional to the total number of particles | $w_i = 1/n$ where $n$ is the number of particles |
 | `GaussianDistribution` | bulk | Weight contribution based on distance from the center with Gaussian falloff | $w_i = \exp(-\|x_i - c\|^2/(2\sigma^2))/\sqrt{2\pi\sigma^2}$ |
+| `mixingIndex` | bulk | Calculates mixing quality indices for multi-component granular systems | See [Section 7](#7-mixing-index-calculations) |
 | `particleProbe` | individual | Extracts values from specific particles | Direct access to particle properties |
 
 ## 5. Region Types
@@ -264,9 +270,187 @@ The above fields may vary from one type of simulation to other. Pleas note that 
 |`fluctuation2` (in average only)| Calculate fluctuation of field values | `no` | `yes` or `no` |
 | `phi` | Field to be used for weighted averaging | `one` | Any valid field name |
 
-## 7. Examples
+## 7. Mixing Index Calculations
 
-### 7.1. Example 1: Probing Individual Particles
+### 7.1. Overview
+
+The mixing index component provides a specialized postprocessing tool to evaluate the quality of mixing in granular systems containing multiple particle types. This is particularly useful for analyzing mixing and segregation phenomena in industrial processes such as mixing in rotating drums, fluidized beds, and other granular mixers.
+
+The mixing index calculation is a **bulk property** that operates on regions defined by the user. Unlike standard operations that calculate field averages or sums, mixing indices provide a statistical measure of how well different particle types are distributed throughout the domain.
+
+### 7.2. Lacey Mixing Index
+
+Currently, phasicFlow implements the **Lacey Mixing Index**, which is one of the most widely used metrics for assessing mixing quality in particulate systems.
+
+#### Mathematical Definition
+
+The Lacey mixing index is defined as:
+
+$$M = \frac{\sigma_0^2 - \sigma^2}{\sigma_0^2 - \sigma_r^2}$$
+
+where:
+
+- $M$ is the Lacey mixing index (dimensionless, ranging from 0 to 1)
+- $\sigma^2$ is the observed variance of the concentration/fraction of one particle type in sample regions
+- $\sigma_0^2$ is the maximum variance corresponding to a completely segregated state
+- $\sigma_r^2$ is the minimum variance corresponding to a completely mixed (random) state
+
+The variance terms are calculated as:
+
+$$\sigma_0^2 = p(1-p)$$
+
+$$\sigma_r^2 = \frac{p(1-p)}{n}$$
+
+$$\sigma^2 = \frac{1}{N_s}\sum_{i=1}^{N_s}(p_i - p)^2$$
+
+where:
+
+- $p$ is the overall number fraction (concentration) of type 1 particles in the system
+- $n$ is the average number of particles per sample region
+- $N_s$ is the number of valid sample regions
+- $p_i$ is the local fraction of type 1 particles in sample region $i$
+
+#### Interpretation
+
+- **M ≈ 0**: Indicates complete segregation (particles of the same type are clustered together)
+- **M ≈ 1**: Indicates complete mixing (particles are randomly distributed)
+- **0 < M < 1**: Indicates partial mixing
+
+### 7.3. Configuration
+
+To use mixing index calculations, set `processMethod` to `mixingIndex` in your postprocessing component. The mixing index component requires:
+
+1. **Region Definition**: A `processRegion` that divides the domain into sample volumes (typically `rectMesh`)
+2. **Index Type**: Specification of which mixing index to calculate (currently only `Lacey` is available)
+3. **Mixing Index Parameters**: Configuration specific to the chosen index type
+
+#### Required Parameters
+
+| Parameter | Description | Example |
+|-----------|-------------|---------|
+| `processMethod` | Must be set to `mixingIndex` | `mixingIndex` |
+| `processRegion` | Type of region for sampling (typically `rectMesh`) | `rectMesh` |
+| `indexType` | Type of mixing index to calculate | `Lacey` |
+
+#### Parameters for Lacey Mixing Index
+
+The Lacey-specific parameters are defined in the `LaceyInfo` sub-dictionary:
+
+| Parameter | Description | Type | Required |
+|-----------|-------------|------|----------|
+| `type1Frac` | Overall number fraction of type 1 particles in the system | `real` | Yes |
+| `threshold` | Minimum number of particles in a sample region for it to be included in the calculation | `uint32` | Yes |
+| `type1Selection` | Method to identify type 1 particles | `word` | Yes |
+
+#### Type Selection Methods
+
+The `type1Selection` parameter specifies how to identify type 1 particles. It uses the same `includeMask` system as other postprocessing operations. Common options include:
+
+- `equal`: Select particles where a field equals a specific value
+- `lessThan`: Select particles where a field is less than a value
+- `greaterThan`: Select particles where a field is greater than a value
+- `between`: Select particles where a field is between two values
+- `lessThanOrEq`, `greaterThanOrEq`, `betweenEq`: Inclusive comparison variants
+
+Each selection method requires its own info sub-dictionary (e.g., `equalInfo`, `lessThanInfo`) with:
+- `field`: The particle field to check (e.g., `shapeIndex`, `diameter`)
+- `value`: The comparison value(s)
+
+### 7.4. Example Configuration
+
+Here's a complete example for calculating the Lacey mixing index in a rotating drum:
+
+```cpp
+mixingIndexCalc
+{
+    processMethod   mixingIndex;
+    
+    processRegion   rectMesh;
+    
+    indexType       Lacey;
+    
+    timeControl     default;
+
+    precision       4;
+
+    scientific      no;
+
+    rectMeshInfo 
+    {
+        min (-0.12 -0.12 0.00); // lower corner point of the box 
+        max (0.12   0.12 0.11); // upper corner point of the box
+        
+        nx 15; // number of divisions in x direction
+        ny 15; // number of divisions in y direction
+        nz 8;  // number of divisions in z direction 
+    }
+
+    LaceyInfo
+    {
+        // Overall fraction of type 1 particles (must match actual system composition)
+        type1Frac      0.5;
+        
+        // Minimum particles per sample to be included in statistics
+        threshold      20;
+        
+        // Method to identify type 1 particles
+        type1Selection equal;
+
+        // Configuration for the equal selection method
+        equalInfo
+        {
+            field   shapeIndex;  // Use shapeIndex to distinguish particle types
+            value   0;           // Type 1 are particles with shapeIndex = 0
+        }
+    }
+}
+```
+
+#### Alternative Example: Selecting by Diameter
+
+If particle types differ by size, you can use diameter-based selection:
+
+```cpp
+LaceyInfo
+{
+    type1Frac      0.3;
+    threshold      10;
+    type1Selection lessThan;
+
+    lessThanInfo
+    {
+        field   diameter;
+        value   0.003;  // Type 1 are particles with diameter < 3 mm
+    }
+}
+```
+
+#### Output
+
+The mixing index calculation produces a time-series output file in the `postprocessData` folder with the following columns:
+
+1. **time**: Simulation time
+2. **numberOfSamples**: Number of valid sample regions (cells with at least `threshold` particles)
+3. **avSampleSize**: Average number of particles per valid sample
+4. **LaceyMixingIndex**: The calculated Lacey mixing index value
+
+The output file also includes a header with the complete `LaceyInfo` parameters used for the calculation, making it easy to reproduce and verify the analysis.
+
+#### Best Practices
+
+1. **Choose appropriate threshold**: The `threshold` value should be large enough to provide meaningful statistics but not so large that most samples are excluded. A typical range is 10-50 particles per sample.
+
+2. **Select proper mesh resolution**: The `rectMesh` should divide the domain into enough cells to capture spatial variations in mixing, but each cell should contain sufficient particles. Typical mesh sizes range from 10×10×10 to 30×30×30 depending on the system size and particle count.
+
+3. **Ensure accurate type1Frac**: The `type1Frac` parameter must accurately reflect the overall fraction of type 1 particles in your system. An incorrect value will lead to incorrect mixing index values.
+
+4. **Verify particle selection**: Before running long simulations, verify that your `type1Selection` correctly identifies the intended particle type by checking the particle fields in your initial configuration.
+
+For a complete tutorial on using Lacey mixing index calculations, see the example case in [`tutorials/postprocessPhasicFlow/LaceyMixingIndex`](./../../tutorials/postprocessPhasicFlow/LaceyMixingIndex/).
+
+## 8. Examples
+
+### 8.1. Example 1: Probing Individual Particles
 
 ```cpp
 velocityProb
@@ -282,7 +466,7 @@ velocityProb
 
 This example extracts the y-component of the position for particles with IDs 0, 10, and 100.
 
-### 7.2. Example 2: Processing in a Spherical Region
+### 8.2. Example 2: Processing in a Spherical Region
 
 ```cpp
 on_single_sphere
@@ -342,7 +526,7 @@ This example defines a sphere region and performs three operations:
 2. Calculate the fraction of particles with diameter less than 0.0031
 3. Calculate the number density by summing and dividing by volume
 
-### 7.3. Example 3: Processing Along a Line
+### 8.3. Example 3: Processing Along a Line
 
 In this example, a line region is defined. The `lineInfo` section specifies the start and end points of the line, the number of spheres to create along the line, and the radius of each point. Bulk properties are calculated in each sphere, based on the properties of particles contained in each sphere.
 
@@ -387,7 +571,7 @@ along_a_line
 
 This example creates 10 spherical regions along a line from (0,0,0) to (0,0.15,0.15) and calculates the bulk density and volume density in each region.
 
-### 7.4 Example 4: Processing in a Rectangular Mesh
+### 8.4. Example 4: Processing in a Rectangular Mesh
 
 In this example, a rectangular mesh is defined. The `rectMeshInfo` section specifies the minimum and maximum corner points of the box, the number of divisions in each direction, and an optional cell extension factor which is effective for GaussianDistribution only. In the `operations` section, two operations are defined: one for calculating the average velocity and another for calculating the solid volume fraction.
 
@@ -436,7 +620,7 @@ on_a_rectMesh
 }
 ```
 
-### 7.5 Example 5: Tracking particles
+### 8.5. Example 5: Tracking particles
 
 Suppose we want to mark and track the position of particles that are located inside a box region at t = 1 s. All particles that are inside the box at t = 1 s will be marked/selected and then the position of them are recorded along the simulation time. The following example shows how to do this. Note that marking/selecting of particles is done at the instance that is defined by `startTime`.  
 
@@ -471,9 +655,9 @@ particlesTrack
 }
 ```
 
-## 8. Advanced Features
+## 9. Advanced Features
 
-### 8.1. Special functions applied on fields
+### 9.1. Special functions applied on fields
 
 You can access specific components of vector fields (`realx3`) using the `component` function:
 
@@ -495,7 +679,7 @@ Here is a complete list of these special functions:
 | `magnitude cube` | `realx3` | `magCube(velocity)` |
 | `magnitude square root` | `realx3` | `magSqrt(acceleration)` |
 
-### 8.2. Particle Filtering with includeMask
+### 9.2. Particle Filtering with includeMask
 
 The `includeMask` parameter allows you to filter particles based on field values:
 
@@ -518,7 +702,7 @@ Supported masks:
 - `greaterThanOrEq`: Include particles where field ≥ value
 - `betweenEq`: Include particles where value1 ≤ field ≤ value2
 
-### 8.3. Implementation Notes
+### 9.3. Implementation Notes
 
 - The postprocessing system can work both during simulation (`runTimeActive yes`) or after simulation completion.
 - When using post-simulation mode, you must specify the correct `shapeType` to properly initialize the shape objects.
@@ -526,7 +710,7 @@ Supported masks:
 - The `threshold` parameter helps eliminate statistical noise in regions with few particles.
 - Setting `divideByVolume` to `yes` normalizes results by the volume of the region, useful for calculating densities.
 
-## 9. Mathematical Formulations
+## 10. Mathematical Formulations
 
 For weighted `bulk` properties calculation, we have these two general formulations:
 
@@ -542,7 +726,7 @@ If `divideByVolume` is set to `yes`, the result is divided by the volume of the 
 
 $$ \text{volumetric result} = \frac{\text{result}}{V_{\text{region}}} $$
 
-## 10. A complete dictionary file (postprocessDataDict)
+## 11. A Complete Dictionary File (postprocessDataDict)
 
 ```C++
 /* -------------------------------*- C++ -*--------------------------------- *\ 
@@ -680,6 +864,51 @@ components
                 divideByVolume yes;
             }
         );
+    }
+    
+    mixingIndexCalc
+    {
+        // Calculate mixing index to evaluate mixing quality
+        processMethod   mixingIndex;
+        
+        processRegion   rectMesh;
+        
+        indexType       Lacey;
+        
+        timeControl     default;
+
+        precision       4;
+
+        scientific      no;
+
+        rectMeshInfo 
+        {
+            min (-0.12 -0.12 0.00); // lower corner point of the box 
+            max (0.12   0.12 0.11); // upper corner point of the box
+            
+            nx 15; // number of divisions in x direction
+            ny 15; // number of divisions in y direction
+            nz 8;  // number of divisions in z direction 
+        }
+
+        LaceyInfo
+        {
+            // Overall fraction of type 1 particles (must match actual system composition)
+            type1Frac      0.5;
+            
+            // Minimum particles per sample to be included in statistics
+            threshold      20;
+            
+            // Method to identify type 1 particles
+            type1Selection equal;
+
+            // Configuration for the equal selection method
+            equalInfo
+            {
+                field   shapeIndex;  // Use shapeIndex to distinguish particle types
+                value   0;           // Type 1 are particles with shapeIndex = 0
+            }
+        }
     }
     
     on_single_sphere
